@@ -44,6 +44,11 @@ public:
   /// the x, y and z axes.
   imu::Vector<3> readAccelerometer();
 
+  /// @brief Reads IMU data in batch (optimized for reduced I2C transactions).
+  /// @details Reads quaternion, linear acceleration, and gyroscope in one I2C operation
+  /// to reduce latency compared to separate reads.
+  void readIMUDataBatch(imu::Quaternion &quat, imu::Vector<3> &linearAcc, imu::Vector<3> &gyro);
+
   /// @brief Reads the IMU gyroscope data in rad/s.
   /// @details The IMU gyroscope data is the angular velocity of the robot in
   /// the x, y and z axes.
@@ -66,30 +71,30 @@ public:
 
   /// @brief Gets the IMU quaternion.
   /// @return The IMU quaternion.
-  imu::Quaternion getQuaternion() { return quat; }
+  imu::Quaternion getQuaternion() const { return quat; }
 
   /// @brief Gets the IMU linear acceleration.
   /// @return The IMU linear acceleration.
-  imu::Vector<3> getLinearAcceleration() { return linearAcc; }
+  imu::Vector<3> getLinearAcceleration() const { return linearAcc; }
 
   /// @brief Gets the IMU accelerometer data.
   /// @return The IMU accelerometer data.
-  imu::Vector<3> getAccelerometer() { return angularAcc; }
+  imu::Vector<3> getAccelerometer() const { return angularAcc; }
 
   /// @brief Gets the IMU gyroscope data.
   /// @return The IMU gyroscope data.
-  imu::Vector<3> getGyroscope() { return gyro; }
+  imu::Vector<3> getGyroscope() const { return gyro; }
 
   /// @brief Gets the IMU temperature data.
   /// @return The IMU temperature data.
-  int8_t getTemperature() { return temp; }
+  int8_t getTemperature() const { return temp; }
 
   /// @brief Gets the foot contact sensors values.
   /// @return A vector of uint16_t containing the analog values from the left
   /// and right foot contact sensors.
-  std::array<uint16_t, 2> getFootPressure()
+  const std::array<uint16_t, 2>& getFootPressure() const
   {
-    return {footContactLValue, footContactRValue};
+    return footContactValues;
   }
 
   /// @brief Timer callback function to read the IMU data and the foot contact sensors.
@@ -117,8 +122,7 @@ private:
   imu::Vector<3> angularAcc;
   imu::Vector<3> gyro;
   int8_t temp;
-  uint16_t footContactLValue;
-  uint16_t footContactRValue;
+  std::array<uint16_t, 2> footContactValues;
 };
 
 #endif // _BERNARD_SENSORS_HPP

@@ -27,7 +27,7 @@ void BernardGUI::initGUI() {
   previousRobotStatus = new BernardStatus_t();
   tft->initR(INITR_BLACKTAB);
   tft->fillScreen(ST77XX_BLACK);
-  tft->setRotation(1);
+  tft->setRotation(3);
   tft->setAddrWindow(0, 0, this->tft->width(), this->tft->height());
   tft->setTextColor(ST77XX_WHITE);
   tft->setTextSize(1);

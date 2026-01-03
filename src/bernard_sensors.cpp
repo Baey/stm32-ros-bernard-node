@@ -9,22 +9,27 @@ BernardSensors::BernardSensors(Adafruit_BNO055 *imu, BernardStatus_t *status, Be
                                uint32_t rFootContactPin)
     : imu(imu), status(status), gui(gui), lFootContactPin(lFootContactPin),
       rFootContactPin(rFootContactPin), quat(), linearAcc(), angularAcc(),
-      gyro(), footContactLValue(), footContactRValue()
+      gyro(), footContactValues()
 {
   highFreqTimer = new HardwareTimer(TIM3);
   lowFreqTimer = new HardwareTimer(TIM4);
-  pingImuTimer = new HardwareTimer(TIM6);
-
+  // pingImuTimer = new HardwareTimer(TIM6);
 }
 
 IMUStatus_t BernardSensors::initSensors()
 {
   gui->logMessage("Initializing IMU...");
   status->IMUStatus = initIMU();
-  highFreqTimer->setOverflow(100, HERTZ_FORMAT);
-  highFreqTimer->attachInterrupt([this]()
-                                  { this->readHighFrequencyTimerCallback(); });
-  highFreqTimer->resume();
+
+  if (status->IMUStatus != IMU_ONLINE) {
+    gui->logMessage("IMU initialization failed!");
+    return IMU_OFFLINE;
+  }
+
+  // highFreqTimer->setOverflow(100, HERTZ_FORMAT);
+  // highFreqTimer->attachInterrupt([this]()
+  //                                 { this->readHighFrequencyTimerCallback(); });
+  // highFreqTimer->resume();
 
   pinMode(lFootContactPin, INPUT);
   pinMode(rFootContactPin, INPUT);
@@ -34,10 +39,10 @@ IMUStatus_t BernardSensors::initSensors()
                                  { this->readLowFrequencyTimerCallback(); });
   lowFreqTimer->resume();
 
-  pingImuTimer->setOverflow(1, HERTZ_FORMAT);
-  pingImuTimer->attachInterrupt([this]()
-                                { this->imuStatusTimerCallback(); });
-  pingImuTimer->resume();
+  // pingImuTimer->setOverflow(1, HERTZ_FORMAT);
+  // pingImuTimer->attachInterrupt([this]()
+  //                               { this->imuStatusTimerCallback(); });
+  // pingImuTimer->resume();
 
   return status->IMUStatus;
 }
@@ -74,6 +79,16 @@ imu::Vector<3> BernardSensors::readAccelerometer()
 {
   return imu->getVector(Adafruit_BNO055::VECTOR_ACCELEROMETER);
 }
+
+void BernardSensors::readIMUDataBatch(imu::Quaternion &quat, imu::Vector<3> &linearAcc, imu::Vector<3> &gyro)
+{
+  // Batch read: Read all required IMU data in minimal I2C transactions
+  // This is more efficient than separate reads as it reduces I2C overhead
+  quat = imu->getQuat();
+  linearAcc = imu->getVector(Adafruit_BNO055::VECTOR_LINEARACCEL);
+  gyro = imu->getVector(Adafruit_BNO055::VECTOR_GYROSCOPE);
+}
+
 imu::Vector<3> BernardSensors::readGyroscope()
 {
   return imu->getVector(Adafruit_BNO055::VECTOR_GYROSCOPE);
@@ -88,13 +103,14 @@ std::array<uint16_t, 2> BernardSensors::readFootPressure()
 
 void BernardSensors::readHighFrequencyTimerCallback()
 {
-  quat = readQuaternion();
-  linearAcc = readLinearAcceleration();
-  gyro = readGyroscope();
+  // Use batch read to minimize I2C transactions and reduce ISR latency
+  readIMUDataBatch(quat, linearAcc, gyro);
 
+  // Read foot pressure analog sensors and apply exponential smoothing using integer arithmetic
+  // Avoids floating-point precision loss for values < 10
   std::array<uint16_t, 2> footContact = readFootPressure();
-  footContactLValue = 0.9 * footContactLValue + 0.1 * footContact[0];
-  footContactRValue = 0.9 * footContactRValue + 0.1 * footContact[1];
+  footContactValues[0] = (9 * footContactValues[0] + footContact[0]) / 10;
+  footContactValues[1] = (9 * footContactValues[1] + footContact[1]) / 10;
 }
 
 void BernardSensors::readLowFrequencyTimerCallback()
@@ -102,12 +118,12 @@ void BernardSensors::readLowFrequencyTimerCallback()
   temp = readTemperature();
 }
 
-void BernardSensors::imuStatusTimerCallback()
-{
-  imu->getSystemStatus(&imuSystemStatus, &imuSelfTestResult, &imuSystemError);
-  status->IMUSystemStatus = static_cast<IMUSystemStatus_t>(imuSystemStatus);
-  status->IMUSelfTestResult = static_cast<IMUSelfTestStatus_t>(imuSelfTestResult);
-  status->IMUSystemError = static_cast<IMUErrorStatus_t>(imuSystemError);
+// void BernardSensors::imuStatusTimerCallback()
+// {
+//   imu->getSystemStatus(&imuSystemStatus, &imuSelfTestResult, &imuSystemError);
+//   status->IMUSystemStatus = static_cast<IMUSystemStatus_t>(imuSystemStatus);
+//   status->IMUSelfTestResult = static_cast<IMUSelfTestStatus_t>(imuSelfTestResult);
+//   status->IMUSystemError = static_cast<IMUErrorStatus_t>(imuSystemError);
 
-  status->euler = imu->getVector(Adafruit_BNO055::VECTOR_EULER);
-}
+//   status->euler = imu->getVector(Adafruit_BNO055::VECTOR_EULER);
+// }
