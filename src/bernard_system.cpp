@@ -26,7 +26,7 @@ BernardSystem::BernardSystem() : sensors(), gui(), status(), node() {
   gui = new BernardGUI(tft, screenRefreshTimer, status);
 
   // Create the STM32Node object
-  node = new STM32Node(*sensors, *gui);
+  node = new STM32Node(*sensors, *gui, *status);
 }
 
 void BernardSystem::init() {

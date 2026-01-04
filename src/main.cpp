@@ -27,7 +27,7 @@ BernardStatus_t bernardStatus;
 BernardGUI gui(&tft, &screenRefreshTimer, &bernardStatus);
 BernardSensors sensors(&bno, &bernardStatus, &gui, L_FOOT_ANALOG_PRESSURE_SENSOR,
                        R_FOOT_ANALOG_PRESSURE_SENSOR);
-STM32Node node(sensors, gui);
+STM32Node node(sensors, gui, bernardStatus);
 
 void setup(void) {
     pinMode(LED_BUILTIN, OUTPUT);
@@ -61,27 +61,23 @@ void loop(void) {
                                              : WAITING_AGENT;);
             break;
         case AGENT_AVAILABLE:
-            gui.logMessage("Kria agent available. Connecting...");
-			if (node.createEntities()) {
-				bernardStatus.ROSStatus = AGENT_CONNECTED;
-				digitalWrite(LED_BUILTIN, 1);
-				gui.setNextScreen(GUI_STATUS);
-			} else {
-				bernardStatus.ROSStatus = WAITING_AGENT;
-				digitalWrite(LED_BUILTIN, 0);
-				node.destroyEntities();
-				gui.logMessage("Failed to connect to Kria agent.");
-			}
+            if (node.createEntities()) {
+                bernardStatus.ROSStatus = AGENT_CONNECTED;
+                digitalWrite(LED_BUILTIN, 1);
+                gui.setNextScreen(GUI_STATUS);
+            } else {
+                bernardStatus.ROSStatus = WAITING_AGENT;
+                digitalWrite(LED_BUILTIN, 0);
+                node.destroyEntities();
+            }
             break;
         case AGENT_CONNECTED:
-            if (bernardStatus.ROSStatus == AGENT_CONNECTED) {
-                node.spin();
-            }
+            node.spin();
             break;
         case AGENT_DISCONNECTED:
             node.destroyEntities();
             bernardStatus.ROSStatus = WAITING_AGENT;
-			digitalWrite(LED_BUILTIN, 0);
+            digitalWrite(LED_BUILTIN, 0);
             break;
         default:
             break;
